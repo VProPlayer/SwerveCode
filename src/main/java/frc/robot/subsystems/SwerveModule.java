@@ -8,9 +8,9 @@ import com.ctre.phoenix6.hardware.CANcoder;
 import com.revrobotics.AbsoluteEncoder;
 import com.revrobotics.RelativeEncoder;
 import com.revrobotics.spark.SparkMax;
-import com.revrobotics.spark.SparkFlex;
+import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
-import com.revrobotics.spark.config.SparkFlexConfig;
+import com.revrobotics.spark.config.SparkMaxConfig;
 import com.revrobotics.spark.config.SparkMaxConfig;
 import com.revrobotics.spark.SparkBase.PersistMode;
 import com.revrobotics.spark.SparkBase.ResetMode;
@@ -21,10 +21,11 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants.*;
+ 
 
 public class SwerveModule extends SubsystemBase {
-  private final SparkFlex driveMotor;
-  private final SparkFlex rotationMotor;
+  private final SparkMax driveMotor;
+  private final SparkMax rotationMotor;
 
   private final RelativeEncoder driveEncoder;
   private final RelativeEncoder rotationEncoder;
@@ -32,15 +33,21 @@ public class SwerveModule extends SubsystemBase {
   private final CANcoder canCoder;
   private final double canCoderOffsetRadians;
 
-  private final PIDController rotationPidController;
+  private final PIDController rotationPIDController;
 
   /** Creates a new SwerveModule. */
-  public SwerveModule(int driveID, int rotationID, int canCoderID, double canCoderOffsetRadians, boolean isDriveInverted) {
-    driveMotor = new SparkFlex(driveID, MotorType.kBrushless);
-    rotationMotor = new SparkFlex(rotationID, MotorType.kBrushless);
+  public SwerveModule(
+    int driveID,
+    int rotationID,
+    int canCoderID,
+    double canCoderOffsetRadians,
+    boolean isDriveInverted
+    /*boolean isRotationInverted */) {
+    driveMotor = new SparkMax(driveID, MotorType.kBrushless);
+    rotationMotor = new SparkMax(rotationID, MotorType.kBrushless);
 
     // DRIVE motor configuration
-    SparkFlexConfig driveConfig = new SparkFlexConfig();
+    SparkMaxConfig driveConfig = new SparkMaxConfig();
     
     driveConfig
     .inverted(isDriveInverted)
@@ -52,7 +59,7 @@ public class SwerveModule extends SubsystemBase {
     driveMotor.configure(driveConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
     // ROTATION motor configuration
-    SparkFlexConfig rotationConfig = new SparkFlexConfig();
+    SparkMaxConfig rotationConfig = new SparkMaxConfig();
     
     rotationConfig
     .inverted(true)
@@ -61,13 +68,19 @@ public class SwerveModule extends SubsystemBase {
     .positionConversionFactor(DriveConstants.rotationEncoderPositionConversionFactor)
     .velocityConversionFactor(DriveConstants.rotationEncoderVelocityConversionFactor);
 
-    driveMotor.configure(rotationConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+    rotationMotor.configure(rotationConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
-    PIDController rotationPIDController = new PIDController(0, 0, 0);
-
+    // PID stuff
+    rotationPIDController = new PIDController(0.25, 0, 0);
+    rotationPIDController.setTolerance(0.01);
     rotationPIDController.enableContinuousInput(-Math.PI, Math.PI);
 
+    // Initalizations
     canCoder = new CANcoder(canCoderID);
+    this.canCoderOffsetRadians = canCoderOffsetRadians;
+    driveEncoder = driveMotor.getEncoder();
+    rotationEncoder = rotationMotor.getEncoder();
+
 
 
   }
@@ -88,11 +101,11 @@ public class SwerveModule extends SubsystemBase {
     return rotationEncoder.getVelocity();
   }
 
-  public SparkFlex getDriveMotor() {
+  public SparkMax getDriveMotor() {
     return driveMotor;
   }
 
-  public SparkFlex getRotationMotor() {
+  public SparkMax getRotationMotor() {
     return rotationMotor;
   }
 
@@ -105,6 +118,10 @@ public class SwerveModule extends SubsystemBase {
     return angle;
   }
 
+  public void initRotationOffset() {
+    rotationEncoder.setPosition(getCANCoderRad());
+}
+
   public void resetEncoders() {
     driveEncoder.setPosition(0);
     rotationEncoder.setPosition(getCANCoderRad());
@@ -112,11 +129,77 @@ public class SwerveModule extends SubsystemBase {
 
   // Maybe Change getRotationPosition to getCANCoderRad
   public SwerveModuleState getState() {
-    return new SwerveModuleState(getDriveVelocity(), new Rotation2d(getRotationPosition()));
+    return new SwerveModuleState(getDriveVelocity(), new Rotation2d(getCANCoderRad()));
   }
 
-  public void setDesiredStates
+  public void setDesiredState(SwerveModuleState state) {
+    // Optimize the reference state to avoid spinning further than 90 degrees
+    if((Math.abs(state.speedMetersPerSecond)< 0.001)){
+      stop();
+      return;
+    }
 
+    state = optimizeModule(state, new Rotation2d(getCANCoderRad()));
+
+    // Set the drive motor speed
+    driveMotor.set(state.speedMetersPerSecond / DriveConstants.maxSpeed);
+
+    // Calculate the desired rotation position
+    double desiredRotation = state.angle.getRadians();
+
+    // Set the rotation motor position using the PID controller
+    double rotationOutput = rotationPIDController.calculate(getCANCoderRad(), desiredRotation);
+    rotationMotor.set(rotationOutput);
+
+    driveMotor.setVoltage(DriveConstants.driveFF.calculate(state.speedMetersPerSecond));
+  }
+
+  public static SwerveModuleState optimizeModule(SwerveModuleState state, Rotation2d angle){
+    double targetAngle = placeInRange(angle.getRadians(), state.angle.getRadians());
+    double targetSpeed = state.speedMetersPerSecond;
+    double currentAngle = angle.getRadians();
+    double delta = targetAngle - currentAngle;
+
+    if(Math.abs(delta) > Math.PI / 2){
+      targetAngle = delta > Math.PI ? (targetAngle -= Math.PI) : (targetAngle += Math.PI);
+      targetSpeed *= -1;
+    }
+    return new SwerveModuleState(targetSpeed, new Rotation2d(targetAngle));
+  }
+
+  public static double placeInRange(double current, double expected){
+    double low = 0;
+    double high = 0;
+    final double twopi = 2 * Math.PI;
+    double offset = current % twopi;
+
+    if (offset >= 0){
+      low = current - offset;
+      high = current + (twopi - offset);
+
+    } else{
+      high = current - offset;
+      low = current + (twopi - offset);
+    }
+    while(expected < low){
+      expected += twopi;
+    }
+    while(expected > high){
+      expected -= twopi;
+    }
+    if(expected - current > Math.PI){
+      expected -= twopi;
+    } else if (expected - current < -Math.PI){
+      expected += twopi;
+    }
+
+    return expected;
+  }
+
+  public void stop(){
+    driveMotor.set(0);
+    rotationMotor.set(0);
+  }
   @Override
   public void periodic() {
     // This method will be called once per scheduler run
