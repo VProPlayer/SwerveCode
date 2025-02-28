@@ -8,8 +8,10 @@ import java.util.function.DoubleSupplier;
 
 import com.ctre.phoenix6.sim.ChassisReference;
 
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.filter.SlewRateLimiter;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 
 
@@ -36,6 +38,10 @@ public class SwerveJoystick extends Command{
   @Override
   public void initialize() {}
 
+  private static final double X_DEADBAND = 0.25;
+  private static final double Y_DEADBAND = 0.35;
+  private static final double ROT_DEADBAND = 0.4;
+
   // Called every time the scheduler runs while the command is scheduled.
   @Override
   public void execute() {
@@ -43,15 +49,32 @@ public class SwerveJoystick extends Command{
     double ySpeed = -forwardY.getAsDouble();
     double rot = -rotation.getAsDouble();
 
-    xSpeed = Math.abs(xSpeed) > 0.25 ? xSpeed : 0.0;
-    ySpeed = Math.abs(ySpeed) > 0.35 ? ySpeed : 0.0;
-    rot = Math.abs(rot) > 0.4 ? rot : 0.0;
+    SmartDashboard.putNumber("Processed Rotation Value", rot);
+    
 
-    xSpeed = xLimiter.calculate(xSpeed)* DriveConstants.kTeleDriveMaxSpeed;
-    ySpeed = yLimiter.calculate(ySpeed)* DriveConstants.kTeleDriveMaxSpeed;
-    rot = rotLimiter.calculate(rot)* DriveConstants.kTeleDriveMaxAngularSpeed;
+    xSpeed = applyDeadbandLimiter(xSpeed, X_DEADBAND, xLimiter, DriveConstants.maxSpeed);
+    ySpeed = applyDeadbandLimiter(ySpeed, Y_DEADBAND, yLimiter, DriveConstants.maxSpeed);
+    rot = applyDeadbandLimiter(rot, ROT_DEADBAND, rotLimiter, DriveConstants.maxAngularVelocity);
 
-    ChassisSpeeds chassisSpeeds;
+    double sliderVal = (-slider.getAsDouble() + 1) / 2;
+    sliderVal = Math.max(sliderVal, 0.15);
+    xSpeed *= sliderVal;
+    ySpeed *= sliderVal;
+    rot *= sliderVal;
+
+    xSpeed = MathUtil.applyDeadband(xSpeed, 0.1, 1);
+    ySpeed = MathUtil.applyDeadband(ySpeed, 0.1, 1);
+    rot = MathUtil.applyDeadband(rot, 0.3, 1);
+
+
+    // xSpeed = Math.abs(xSpeed) > 0.25 ? xSpeed : 0.0;
+    // ySpeed = Math.abs(ySpeed) > 0.35 ? ySpeed : 0.0;
+    // rot = Math.abs(rot) > 0.4 ? rot : 0.0;
+
+    // xSpeed = xLimiter.calculate(xSpeed)* DriveConstants.kTeleDriveMaxSpeed;
+    // ySpeed = yLimiter.calculate(ySpeed)* DriveConstants.kTeleDriveMaxSpeed;
+    // rot = rotLimiter.calculate(rot)* DriveConstants.kTeleDriveMaxAngularSpeed;
+
     swerveSubsystem.drive(
       xSpeed,
       ySpeed, 
@@ -60,6 +83,11 @@ public class SwerveJoystick extends Command{
     );
 
 
+  }
+
+  private double applyDeadbandLimiter(double input, double deadband, SlewRateLimiter limiter, double maxSpeed) {
+    input = Math.abs(input) > deadband ? input : 0.0;
+    return limiter.calculate(input) * maxSpeed;
   }
 
   // Called once the command ends or is interrupted.

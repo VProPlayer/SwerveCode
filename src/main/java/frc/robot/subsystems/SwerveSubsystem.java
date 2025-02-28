@@ -93,14 +93,6 @@ public class SwerveSubsystem extends SubsystemBase{
     }
     
 
-    public void setDrive(SwerveModuleState[] desiredStates){
-        SwerveDriveKinematics.desaturateWheelSpeeds(desiredStates, DriveConstants.maxSpeed);
-        frontLeft.setDesiredState(desiredStates[0]);
-        frontRight.setDesiredState(desiredStates[1]);
-        backLeft.setDesiredState(desiredStates[2]);
-        backRight.setDesiredState(desiredStates[3]);
-    }
-
     public SwerveModulePosition[] getModulePosition() {
     SwerveModulePosition[] positions = {
       new SwerveModulePosition(frontLeft.getDrivePosition(), new Rotation2d(frontLeft.getCANCoderRad())),
@@ -108,8 +100,6 @@ public class SwerveSubsystem extends SubsystemBase{
       new SwerveModulePosition(backLeft.getDrivePosition(), new Rotation2d(backLeft.getCANCoderRad())),
       new SwerveModulePosition(backRight.getDrivePosition(), new Rotation2d(backRight.getCANCoderRad()))
     };
-
-    
 
     return positions;
   }
@@ -153,6 +143,11 @@ public class SwerveSubsystem extends SubsystemBase{
 
     setModuleStates(states);
 
+    for (int i = 0; i < states.length; i++) {
+      SmartDashboard.putNumber("Module " + i + " Speed", states[i].speedMetersPerSecond);
+      SmartDashboard.putNumber("Module " + i + " Angle", states[i].angle.getDegrees());
+  }
+
   }
 
   @Override
@@ -167,19 +162,8 @@ public class SwerveSubsystem extends SubsystemBase{
       backLeft.getRotationPosition(),
       backRight.getRotationPosition()
     };
-    double[] swerveStates = new double[]{
-      frontLeft.getState().speedMetersPerSecond,
-      frontRight.getState().speedMetersPerSecond,
-      backLeft.getState().speedMetersPerSecond,
-      backRight.getState().speedMetersPerSecond,
-      frontLeft.getState().angle.getDegrees(),
-      frontRight.getState().angle.getDegrees(),
-      backLeft.getState().angle.getDegrees(),
-      backRight.getState().angle.getDegrees()
-    };
 
     SmartDashboard.putNumberArray("Swerve", swerve);
-    SmartDashboard.putNumberArray("Swerve States", swerveStates);
 
   }
   

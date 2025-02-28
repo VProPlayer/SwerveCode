@@ -83,24 +83,10 @@ public final class Constants {
     public static final double trackWidth = Units.inchesToMeters(21.25); // distance from center of wheels on side
 
      public static final SwerveDriveKinematics kinematics = new SwerveDriveKinematics(
-      // new Translation2d(wheelBase / 2.0, trackWidth / 2.0), // front right (+,+) front left
-      // new Translation2d(wheelBase / 2.0, -trackWidth / 2.0), // back right (+,-) front right
-      // new Translation2d(-wheelBase / 2.0, trackWidth / 2.0), // front left (-,+) back left
-      // new Translation2d(-wheelBase / 2.0, -trackWidth / 2.0) // back left (-,-) back right
-      // fix rotaion, battery side currently, rio side actual front 
       new Translation2d(-wheelBase / 2.0, trackWidth / 2.0), // front left (-,+)
       new Translation2d(wheelBase / 2.0, trackWidth / 2.0), // front right (+,+)
       new Translation2d(-wheelBase / 2.0, -trackWidth / 2.0), // back left (-,-)
       new Translation2d(wheelBase / 2.0, -trackWidth / 2.0) // back right (+,-)
-
-      // new Translation2d(-wheelBase / 2.0, -trackWidth / 2.0), // front right (+,+) front left
-      // new Translation2d(wheelBase / 2.0, trackWidth / 2.0), // back right (+,-) front right
-      // new Translation2d(wheelBase / 2.0, -trackWidth / 2.0), // front left (-,+) back left
-      // new Translation2d(-wheelBase / 2.0, trackWidth / 2.0) // back left (-,-) back right
-
-
-      
     );
-
   }
 }

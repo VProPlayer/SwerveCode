@@ -6,9 +6,7 @@ package frc.robot;
 
 import frc.robot.Constants.OperatorConstants;
 import frc.robot.commands.Autos;
-import frc.robot.commands.ExampleCommand;
 import frc.robot.commands.SwerveJoystick;
-import frc.robot.subsystems.ExampleSubsystem;
 import frc.robot.subsystems.SwerveSubsystem;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -41,8 +39,8 @@ public class RobotContainer {
       configureBindings();
       swerveSubsystem.setDefaultCommand(new SwerveJoystick(
         swerveSubsystem, 
-        () -> driverJoystick.getRawAxis(0),  // forwardX
-        () -> driverJoystick.getRawAxis(1),  // forwardY
+        () -> driverJoystick.getRawAxis(1),  // forwardX
+        () -> driverJoystick.getRawAxis(0),  // forwardY
         () -> driverJoystick.getRawAxis(2), // rotation
         () -> driverJoystick.getRawAxis(3) // slider 
         ));
