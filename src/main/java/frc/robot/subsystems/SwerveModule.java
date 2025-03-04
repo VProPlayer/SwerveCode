@@ -35,43 +35,58 @@ public class SwerveModule extends SubsystemBase {
 
   private final PIDController rotationPIDController;
 
+  private static final double kP = 0.25;
+  private static final double kI = 0;
+  private static final double kD = 0;
+  private static final double kTolerance = 0.01;
+
+
   /** Creates a new SwerveModule. */
   public SwerveModule(
     int driveID,
     int rotationID,
     int canCoderID,
     double canCoderOffsetRadians,
-    boolean isDriveInverted
-    /*boolean isRotationInverted */) {
+    boolean isDriveInverted,
+    boolean isRotationInverted) {
     driveMotor = new SparkMax(driveID, MotorType.kBrushless);
     rotationMotor = new SparkMax(rotationID, MotorType.kBrushless);
 
     // DRIVE motor configuration
-    SparkMaxConfig driveConfig = new SparkMaxConfig();
+    // SparkMaxConfig driveConfig = new SparkMaxConfig();
     
-    driveConfig
-    .inverted(isDriveInverted)
-    .idleMode(IdleMode.kBrake);
-    driveConfig.encoder
-    .positionConversionFactor(DriveConstants.driveEncoderPositionConversionFactor)
-    .velocityConversionFactor(DriveConstants.driveEncoderVelocityConversionFactor);
+    // driveConfig
+    // .inverted(isDriveInverted)
+    // .idleMode(IdleMode.kBrake);
+    // driveConfig.encoder
+    // .positionConversionFactor(DriveConstants.driveEncoderPositionConversionFactor)
+    // .velocityConversionFactor(DriveConstants.driveEncoderVelocityConversionFactor);
 
-    driveMotor.configure(driveConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
-    // ROTATION motor configuration
-    SparkMaxConfig rotationConfig = new SparkMaxConfig();
+    // driveMotor.configure(driveConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+
+    // // ROTATION motor configuration
+    // SparkMaxConfig rotationConfig = new SparkMaxConfig();
     
-    rotationConfig
-    .inverted(true)
-    .idleMode(IdleMode.kBrake);
-    rotationConfig.encoder
-    .positionConversionFactor(DriveConstants.rotationEncoderPositionConversionFactor)
-    .velocityConversionFactor(DriveConstants.rotationEncoderVelocityConversionFactor);
+    // rotationConfig
+    // .inverted(isRotationInverted)
+    // .idleMode(IdleMode.kBrake);
+    // rotationConfig.encoder
+    // .positionConversionFactor(DriveConstants.rotationEncoderPositionConversionFactor)
+    // .velocityConversionFactor(DriveConstants.rotationEncoderVelocityConversionFactor);
 
-    rotationMotor.configure(rotationConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+    // rotationMotor.configure(rotationConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
+    configureMotor(driveMotor, isDriveInverted, IdleMode.kBrake, 
+                   DriveConstants.driveEncoderPositionConversionFactor, 
+                   DriveConstants.driveEncoderVelocityConversionFactor);
+
+    // Configure rotation motor
+    configureMotor(rotationMotor, true, IdleMode.kBrake, 
+                   DriveConstants.rotationEncoderPositionConversionFactor, 
+                   DriveConstants.rotationEncoderVelocityConversionFactor);
     // PID stuff
-    rotationPIDController = new PIDController(0.25, 0, 0);
+    rotationPIDController = new PIDController(kP, kI, kD);
     rotationPIDController.setTolerance(0.01);
     rotationPIDController.enableContinuousInput(-Math.PI, Math.PI);
 
@@ -83,6 +98,22 @@ public class SwerveModule extends SubsystemBase {
 
 
 
+  }
+
+  private void configureMotor(
+    SparkMax motor, 
+    boolean isInverted, 
+    IdleMode idleMode, 
+    double positionConversionFactor, 
+    double velocityConversionFactor) {
+    SparkMaxConfig config = new SparkMaxConfig();
+    config
+      .inverted(isInverted)
+      .idleMode(idleMode);
+    config.encoder
+      .positionConversionFactor(positionConversionFactor)
+      .velocityConversionFactor(velocityConversionFactor);
+    motor.configure(config, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
   }
 
   public double getDrivePosition() {
@@ -143,23 +174,16 @@ public class SwerveModule extends SubsystemBase {
 
     // state = optimizeModule(state, new Rotation2d(getCANCoderRad()));
     state = optimize(state, getState().angle);
-    
-
-
-
-    // Set the drive motor speed
-    driveMotor.set(state.speedMetersPerSecond / DriveConstants.maxSpeed);
 
     // Calculate the desired rotation position
     double desiredRotation = state.angle.getRadians();
-
-    // Debugging: Print the desired rotation angle
-    System.out.println("Desired Rotation (Radians): " + desiredRotation);
-
+    
     // Set the rotation motor position using the PID controller
     double rotationOutput = rotationPIDController.calculate(getCANCoderRad(), desiredRotation);
     rotationMotor.set(rotationOutput);
 
+    // Set the drive motor speed - TEST
+    //driveMotor.set(state.speedMetersPerSecond / DriveConstants.maxSpeed);
     driveMotor.setVoltage(DriveConstants.driveFF.calculate(state.speedMetersPerSecond));
   }
 
@@ -171,47 +195,6 @@ public class SwerveModule extends SubsystemBase {
       return new SwerveModuleState(desiredState.speedMetersPerSecond, desiredState.angle);
     }
   }
-  // public static SwerveModuleState optimizeModule(SwerveModuleState state, Rotation2d angle){
-  //   double targetAngle = placeInRange(angle.getRadians(), state.angle.getRadians());
-  //   double targetSpeed = state.speedMetersPerSecond;
-  //   double currentAngle = angle.getRadians();
-  //   double delta = targetAngle - currentAngle;
-
-  //   if(Math.abs(delta) > Math.PI / 2){
-  //     targetAngle = delta > Math.PI ? (targetAngle -= Math.PI) : (targetAngle += Math.PI);
-  //     targetSpeed *= -1;
-  //   }
-  //   return new SwerveModuleState(targetSpeed, new Rotation2d(targetAngle));
-  // }
-
-  // public static double placeInRange(double current, double expected){
-  //   double low = 0;
-  //   double high = 0;
-  //   final double twopi = 2 * Math.PI;
-  //   double offset = current % twopi;
-
-  //   if (offset >= 0){
-  //     low = current - offset;
-  //     high = current + (twopi - offset);
-
-  //   } else{
-  //     high = current - offset;
-  //     low = current + (twopi - offset);
-  //   }
-  //   while(expected < low){
-  //     expected += twopi;
-  //   }
-  //   while(expected > high){
-  //     expected -= twopi;
-  //   }
-  //   if(expected - current > Math.PI){
-  //     expected -= twopi;
-  //   } else if (expected - current < -Math.PI){
-  //     expected += twopi;
-  //   }
-
-  //   return expected;
-  // }
 
   public void stop(){
     driveMotor.set(0);

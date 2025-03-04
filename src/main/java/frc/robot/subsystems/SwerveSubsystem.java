@@ -21,30 +21,31 @@ public class SwerveSubsystem extends SubsystemBase{
     DriveConstants.frontLeftRotationMotorId, 
     DriveConstants.frontLeftCanCoderId, 
     DriveConstants.frontLeftOffsetRad,
-    false);
+    false, true);
   private final SwerveModule frontRight = new SwerveModule(
     DriveConstants.frontRightDriveMotorId, 
     DriveConstants.frontRightRotationMotorId, 
     DriveConstants.frontRightCanCoderId, 
     DriveConstants.frontRightOffsetRad,
-    true);
+    true, true);
   private final SwerveModule backLeft = new SwerveModule(
     DriveConstants.backLeftDriveMotorId, 
     DriveConstants.backLeftRotationMotorId, 
     DriveConstants.backLeftCanCoderId, 
     DriveConstants.backLeftOffsetRad,
-    false);
+    false, true);
   private final SwerveModule backRight = new SwerveModule(
     DriveConstants.backRightDriveMotorId, 
     DriveConstants.backRightRotationMotorId, 
     DriveConstants.backRightCanCoderId, 
     DriveConstants.backRightOffsetRad,
-    true);
+    true, true);
 
-    private final AHRS gyro = new AHRS(AHRS.NavXComType.kMXP_SPI);
+    private final AHRS gyro;
     private final SwerveDriveOdometry odometry = new SwerveDriveOdometry(DriveConstants.kinematics, new Rotation2d(), getModulePosition());
     
     public SwerveSubsystem(){
+      gyro = new AHRS(AHRS.NavXComType.kMXP_SPI);
       new Thread(() -> {
       try {
         Thread.sleep(1000);
@@ -65,11 +66,6 @@ public class SwerveSubsystem extends SubsystemBase{
     frontRight.resetEncoders();
     backLeft.resetEncoders();
     backRight.resetEncoders();
-    }
-
-     public ChassisSpeeds getRobotRelativeSpeeds() {
-        ChassisSpeeds chassisSpeeds = DriveConstants.kinematics.toChassisSpeeds(getStates());
-        return chassisSpeeds;
     }
 
     public void stopDrive(){
